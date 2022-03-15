@@ -8,15 +8,31 @@ import (
 	"net/http"
 )
 
+// RequestReader perfoms reading operations for a given *http.Request.
 type RequestReader interface {
+	// JSON reads the body information as a JSON, writes output on the v interface{} param.
+	// 	@param r *http.Request: Request to read.
+	//	@param v interface{}: output target. (Must be a pointer)
+	//	@return err error: reading error.
 	JSON(r *http.Request, v interface{}) error
 }
 
+// RequestReaderImpl is the implementation for the RequestReader interface.
 type RequestReaderImpl struct{}
 
+var requestReaderImpl *RequestReaderImpl
+
 func (rR RequestReaderImpl) JSON(r *http.Request, v interface{}) (err error) {
+	if r == nil {
+		err = errors.New("invalid request value: empty or nil *http.Request")
+		return
+	}
+	if v == nil {
+		err = errors.New("invalid target: empty or nil target object")
+		return
+	}
 	if !checkContentTypeJSON(r.Header) {
-		err = fmt.Errorf("invalid content type: Content-Type header is not application/json")
+		err = errors.New("invalid content type: Content-Type header is not application/json")
 		return
 	}
 
@@ -32,8 +48,18 @@ func (rR RequestReaderImpl) JSON(r *http.Request, v interface{}) (err error) {
 	return
 }
 
-func NewRequestReaderImpl() RequestReaderImpl {
-	return RequestReaderImpl{}
+// NewRequestReaderImpl initializes a new RequestReaderImpl instance.
+// 	@return $1 RequestReaderImpl: new RequestReaderImpl instance.
+func NewRequestReaderImpl() *RequestReaderImpl {
+	return &RequestReaderImpl{}
+}
+
+// GetRequestReaderImpl gets or initializes a RequestReaderImpl instance.
+func GetRequestReaderImpl() RequestReaderImpl {
+	if requestReaderImpl == nil {
+		requestReaderImpl = NewRequestReaderImpl()
+	}
+	return *requestReaderImpl
 }
 
 func checkContentTypeJSON(h http.Header) (match bool) {
