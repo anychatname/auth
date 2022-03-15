@@ -111,17 +111,24 @@ func (u AuthRepository) UpsertSession(session auth.Session) (err error) {
 }
 
 func (u AuthRepository) MatchCredentials(user users.User) (id int, err error) {
-	query := `
-		select id from users where (nickname = $1 and password = $3) or (email = $2 and password = $3)
+	matchCredentialsQ := `
+		select
+			id,
+			(select id from users where (nickname = $1 and password = $3) or (email = $2 and password = $3))
+		from
+			users
+		where
+			nickname = $1 or email = $2
 	`
-
-	err = u.db.QueryRow(query, user.Nickname, user.Email, user.Password).Scan(&id)
+	var idToCheck int
+	err = u.db.QueryRow(matchCredentialsQ, user.Nickname, user.Email, user.Password).Scan(&id, &idToCheck)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			err = nil
+			err = errors.New("not found: user don't exists")
 			return
 		}
 		err = fmt.Errorf("failed to get user credentials: %s", err)
 	}
+	id = idToCheck
 	return
 }
