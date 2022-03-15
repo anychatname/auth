@@ -38,17 +38,23 @@ type ExternalSigned struct {
 // 	@return err error: error in the validation of the based user.
 func New(userR User) (user User, err error) {
 	// If the user is not registered with an external platform, validate the nickname and password.
-	if len(userR.SignedWith) == 0 {
-		err = ValidateNickname(userR.Nickname)
+	user = userR
+	if len(user.SignedWith) == 0 {
+		err = ValidateNickname(user.Nickname)
 		if err != nil {
+			user = User{}
+			return
+		}
+		if user.Password == "" {
+			err = errors.NewClientError(http.StatusBadRequest, "invalid password: empty value")
 			return
 		}
 		err = HashPassword(&user.Password)
 		if err != nil {
+			user = User{}
 			return
 		}
 	}
-	user = userR
 	user.CreatedAt = time.Now()
 	return
 }
