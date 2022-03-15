@@ -45,10 +45,6 @@ func New(userR User) (user User, err error) {
 			user = User{}
 			return
 		}
-		if user.Password == "" {
-			err = errors.NewClientError(http.StatusBadRequest, "invalid password: empty value")
-			return
-		}
 		err = HashPassword(&user.Password)
 		if err != nil {
 			user = User{}
@@ -64,11 +60,15 @@ func New(userR User) (user User, err error) {
 //	  The result of the bcrypt is assigned to this same param.
 //  @return err error: bcrypt encriptation error.
 func HashPassword(orig *string) (err error) {
+	if orig == nil || *orig == "" {
+		err = errors.NewClientError(http.StatusBadRequest, "invalid password: empty or nil value")
+		return
+	}
 	h, err := auth.HashPassword(*orig)
 	if err != nil {
 		return
 	}
-	orig = &h
+	*orig = h
 	return
 }
 
@@ -85,7 +85,7 @@ func ValidateNickname(nickname string) (err error) {
 }
 
 // ValidateEmail validate the email with a standart library and
-//	check the host.
+//  check the host.
 // @param email string: email to validate.
 // @return err error: invalid format of the email or the host.
 func ValidateEmail(email string) (err error) {
