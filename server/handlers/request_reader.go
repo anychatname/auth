@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	sErrors "github.com/coffemanfp/chat/errors"
 )
 
 // RequestReader perfoms reading operations for a given *http.Request.
@@ -26,12 +24,15 @@ var requestReaderImpl *RequestReaderImpl
 
 func (rR RequestReaderImpl) JSON(r *http.Request, v interface{}) (err error) {
 	if r == nil {
-		err = fmt.Errorf("invalid request value: empty or nil *http.Request")
-		err = sErrors.NewClientError(http.StatusInternalServerError, sErrors.SERVER_ERROR_MESSAGE, err)
+		err = errors.New("invalid request value: empty or nil *http.Request")
+		return
+	}
+	if v == nil {
+		err = errors.New("invalid target: empty or nil target object")
 		return
 	}
 	if !checkContentTypeJSON(r.Header) {
-		err = fmt.Errorf("invalid content type: Content-Type header is not application/json")
+		err = errors.New("invalid content type: Content-Type header is not application/json")
 		return
 	}
 
