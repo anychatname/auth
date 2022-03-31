@@ -11,7 +11,7 @@ type Config interface {
 // ConfigInfo is the common structure to contain all the config fields.
 type ConfigInfo struct {
 	Server               server               `yaml:"server"`
-	OAuth                oauth                `yaml:"oauth"`
+	OAuth                OAuth                `yaml:"oauth"`
 	PostgreSQLProperties postgreSQLProperties `yaml:"psql"`
 }
 
@@ -21,12 +21,12 @@ type server struct {
 	AllowedOrigins []string `yaml:"allowed_origins"`
 }
 
-type oauth struct {
-	Google   oauthProperties `yaml:"google"`
-	Facebook oauthProperties `yaml:"facebook"`
+type OAuth struct {
+	Google   OAuthProperties `yaml:"google"`
+	Facebook OAuthProperties `yaml:"facebook"`
 }
 
-type oauthProperties struct {
+type OAuthProperties struct {
 	ClientID     string   `yaml:"client_id"`
 	ClientSecret string   `yaml:"client_secret"`
 	RedirectURIS []string `yaml:"redirect_uris"`

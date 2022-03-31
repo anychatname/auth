@@ -44,15 +44,15 @@ func newConfigWithEnvVars() (conf ConfigInfo, err error) {
 			Host:           os.Getenv("SRV_HOST"),
 			AllowedOrigins: strings.Split(os.Getenv("SRV_ALLOWED_ORIGINS"), ";"),
 		},
-		OAuth: oauth{
-			Google: oauthProperties{
+		OAuth: OAuth{
+			Google: OAuthProperties{
 				ClientID:     os.Getenv("OAUTH_GOOGLE_CLIENT_ID"),
 				ClientSecret: os.Getenv("OAUTH_GOOGLE_CLIENT_SECRET"),
 				RedirectURIS: strings.Split(os.Getenv("OAUTH_GOOGLE_REDIRECT_URIS"), ";"),
 				Scopes:       strings.Split(os.Getenv("OAUTH_GOOGLE_SCOPES"), ";"),
 				Endpoint:     google.Endpoint,
 			},
-			Facebook: oauthProperties{
+			Facebook: OAuthProperties{
 				ClientID:     os.Getenv("OAUTH_FACEBOOK_CLIENT_ID"),
 				ClientSecret: os.Getenv("OAUTH_FACEBOOK_CLIENT_SECRET"),
 				RedirectURIS: strings.Split(os.Getenv("OAUTH_FACEBOOK_REDIRECT_URIS"), ";"),

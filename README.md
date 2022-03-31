@@ -25,4 +25,7 @@ This service is not completly based in the Clean Code arquitecture, rather it is
 The REST API is based on the [Open API](https://swagger.io/specification/) specification.
 A common example of a route is the following:
 
-    .../api/v[versionNumber]/route
+    .../api/v[versionNumber]/[route]
+ 
+ - `versionNumber`: API version number. Must be a natural number greater than zero ([1, 2, 3, ....]).
+- `route`

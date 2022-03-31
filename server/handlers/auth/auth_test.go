@@ -2,11 +2,19 @@ package auth
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"testing"
 
 	"github.com/coffemanfp/chat/auth"
+	"github.com/coffemanfp/chat/config"
 	"github.com/coffemanfp/chat/database"
+	"github.com/coffemanfp/chat/server/handlers"
 	"github.com/coffemanfp/chat/users"
+	"golang.org/x/oauth2/facebook"
+	"golang.org/x/oauth2/google"
 )
 
 type authRepositoryImpl struct {
@@ -16,7 +24,7 @@ type authRepositoryImpl struct {
 	session   map[string]auth.Session
 }
 
-var _ database.AuthRepository = &authRepositoryImpl{
+var authRepository database.AuthRepository = &authRepositoryImpl{
 	m:       sync.Mutex{},
 	users:   make(map[string]users.User),
 	session: make(map[string]auth.Session),
@@ -60,4 +68,84 @@ func (a *authRepositoryImpl) UpsertSession(session auth.Session) (err error) {
 	}
 	a.m.Unlock()
 	return
+}
+
+var conf config.ConfigInfo = config.ConfigInfo{
+	OAuth: config.OAuth{
+		Google: config.OAuthProperties{
+			Endpoint:     google.Endpoint,
+			RedirectURIS: make([]string, 1),
+		},
+		Facebook: config.OAuthProperties{
+			Endpoint:     facebook.Endpoint,
+			RedirectURIS: make([]string, 1),
+		},
+	},
+}
+
+var fbHandler = newFacebookHandler(conf)
+var gHandler = newGoogleHandler(conf)
+
+func TestAuthHandler_handleExternalSign(t *testing.T) {
+	type fields struct {
+		config               config.ConfigInfo
+		repository           database.AuthRepository
+		writer               handlers.ResponseWriter
+		reader               handlers.RequestReader
+		userReaders          map[handlerName]userReader
+		externalSignHandlers map[handlerName]externalSignUpHandler
+	}
+	type args struct {
+		w http.ResponseWriter
+		r *http.Request
+	}
+	tests := []struct {
+		name            string
+		fields          fields
+		args            args
+		wantCode        int
+		wantURLRedirect string
+	}{
+		{
+			name: "Given When Then",
+			fields: fields{
+				config:     conf,
+				repository: authRepository,
+				writer:     handlers.GetResponseWriterImpl(),
+				reader:     handlers.GetRequestReaderImpl(),
+				userReaders: map[handlerName]userReader{
+					systemHandlerName: systemUserReader{
+						reader: handlers.GetRequestReaderImpl(),
+						writer: handlers.GetResponseWriterImpl(),
+					},
+					googleHandlerName:   gHandler,
+					facebookHandlerName: fbHandler,
+				},
+				externalSignHandlers: map[handlerName]externalSignUpHandler{
+					googleHandlerName:   gHandler,
+					facebookHandlerName: fbHandler,
+				},
+			},
+			args: args{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("GET", "/", nil),
+			},
+			wantCode: http.StatusTemporaryRedirect,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := AuthHandler{
+				config:               tt.fields.config,
+				repository:           tt.fields.repository,
+				writer:               tt.fields.writer,
+				reader:               tt.fields.reader,
+				userReaders:          tt.fields.userReaders,
+				externalSignHandlers: tt.fields.externalSignHandlers,
+			}
+			a.handleExternalSign(tt.args.w, tt.args.r)
+			rec := tt.args.w.(*httptest.ResponseRecorder)
+			fmt.Println(rec.Code)
+		})
+	}
 }
