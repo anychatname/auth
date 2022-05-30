@@ -22,8 +22,7 @@ create table if not exists external_user_auth (
 );
 
 create table if not exists user_session (
-    id varchar unique not null,
-    tmp_id varchar unique,
+    id serial unique not null,
     user_id integer not null,
     logged_at timestamp not null,
     last_seen_at timestamp not null,
@@ -44,7 +43,7 @@ create table if not exists events (
 
 create table if not exists sudo (
 	id serial unique not null,
-	session_id varchar not null,
+	session_id integer not null,
 	duration_in_secs integer not null,
 	created_at timestamp not null,
 

@@ -4,12 +4,12 @@ import "time"
 
 type Sudo struct {
 	ID             int
-	SessionID      string
+	SessionID      int
 	DurationInSecs int
 	CreatedAt      time.Time
 }
 
-func NewSudo(sessionID string, durationInSecs int) (sudo Sudo) {
+func NewSudo(sessionID int, durationInSecs int) (sudo Sudo) {
 	return Sudo{
 		SessionID:      sessionID,
 		DurationInSecs: durationInSecs,

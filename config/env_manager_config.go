@@ -66,7 +66,7 @@ func newConfigWithEnvVars() (conf ConfigInfo, err error) {
 			},
 		},
 		Sudo: sudo{
-			durationInSecs: sudoDuration,
+			DurationInSecs: sudoDuration,
 		},
 		PostgreSQLProperties: postgreSQLProperties{
 			User:     os.Getenv("DB_USER"),

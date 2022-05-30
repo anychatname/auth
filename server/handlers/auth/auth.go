@@ -120,7 +120,7 @@ func (a AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sessionID string
+	var sessionID int
 
 	switch action {
 	case "signup":
@@ -156,27 +156,27 @@ func (a AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 
 // handleSignUp performs a sign up process for the user requested.
 //  @param user users.User: user to sign up.
-//  @return tmpID string: just-one-use tmp id.
-func (a AuthHandler) handleSignUp(user users.User, w http.ResponseWriter, r *http.Request) (tmpID string, err error) {
+//  @return sessionID string: session unique identificator.
+func (a AuthHandler) handleSignUp(user users.User, w http.ResponseWriter, r *http.Request) (sessionID int, err error) {
 	user, session, err := a.signUp(user)
 	if err != nil {
 		return
 	}
 
-	tmpID = session.TmpID
+	sessionID = session.ID
 	return
 }
 
 // handleLogin performs a login process for the user requested.
 //  @param user users.User: user to login.
-//  @return tmpID string: just-one-use tmp id.
-func (a AuthHandler) handleLogin(user users.User, w http.ResponseWriter, r *http.Request) (tmpID string, err error) {
+//  @return sessionID string: session unique identificator.
+func (a AuthHandler) handleLogin(user users.User, w http.ResponseWriter, r *http.Request) (sessionID int, err error) {
 	session, err := a.login(user)
 	if err != nil {
 		return
 	}
 
-	tmpID = session.TmpID
+	sessionID = session.ID
 	return
 }
 
@@ -238,7 +238,7 @@ func (a AuthHandler) signUp(userR users.User) (user users.User, session auth.Ses
 
 	log.Println("New generated session")
 
-	err = a.repository.UpsertSession(session)
+	session.ID, err = a.repository.UpsertSession(session)
 	if err != nil {
 		return
 	}
@@ -278,7 +278,7 @@ func (a AuthHandler) login(userR users.User) (session auth.Session, err error) {
 		return
 	}
 
-	err = a.repository.UpsertSession(session)
+	session.ID, err = a.repository.UpsertSession(session)
 	return
 }
 
@@ -305,17 +305,21 @@ func (a AuthHandler) HandleSudo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, ok := sess.Values["session_id"].(string)
+	sessionID, ok := sess.Values["session_id"].(int)
 	if !ok {
 		err = sErrors.NewClientError(http.StatusUnauthorized, "invalid credentials: user session expired or invalid")
 		a.handleError(w, err)
 		return
 	}
 
-	// a.config.Sudo.DurationInSecs
 	sudo := auth.NewSudo(sessionID, a.config.Sudo.DurationInSecs)
+	err = a.repository.SaveSudo(sudo)
+	if err != nil {
+		a.handleError(w, err)
+		return
+	}
 
-	// Validate sudo session timer
+	log.Println("Success sudo")
 }
 
 func (a AuthHandler) handleError(w http.ResponseWriter, err error) {

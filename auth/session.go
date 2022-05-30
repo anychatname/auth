@@ -1,15 +1,12 @@
 package auth
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Session represents the session of a user in a client.
 type Session struct {
-	ID string `json:"id,omitempty"`
+	ID int `json:"id,omitempty"`
 
 	UserID int `json:"user_id,omitempty"`
 
@@ -32,16 +29,9 @@ type Session struct {
 //  @return session Session: new Session instance.
 //	@return err error: session encryptation error.
 func NewSession(userID int, loggedWith string) (session Session, err error) {
-	// Generate new encrypted session ID with the userID and a random uuid string.
-	sessionID, err := HashPassword(fmt.Sprint(userID, uuid.NewString()))
-	if err != nil {
-		return
-	}
-
 	now := time.Now()
 
 	session = Session{
-		ID:         sessionID,
 		UserID:     userID,
 		LoggedWith: loggedWith,
 		LoggedAt:   now,

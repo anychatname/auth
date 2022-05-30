@@ -91,28 +91,29 @@ func (u AuthRepository) SignUp(user users.User, session auth.Session) (id int, e
 	return
 }
 
-func (u AuthRepository) UpsertSession(session auth.Session) (err error) {
+func (u AuthRepository) UpsertSession(session auth.Session) (id int, err error) {
 	qInsertSession := `
 		insert into
-			user_session(id, tmp_id, user_id, logged_at, last_seen_at, logged_with, actived)
+			user_session(user_id, logged_at, last_seen_at, logged_with, actived)
 		values
-			($1, $2, $3, $4, $5, $6, $7)
+			($1, $2, $3, $4, $5)
 		on conflict (user_id, actived) do update set
-			last_seen_at=$5, tmp_id = null
+			last_seen_at=$3
 		where
-			user_session.user_id=$3 and user_session.actived;
+			user_session.user_id=$1 and user_session.actived
+		returning
+			id
 	`
-
-	_, err = u.db.Exec(qInsertSession, session.ID, session.TmpID, session.UserID, session.LoggedAt, session.LastSeenAt, session.LoggedWith, session.Actived)
+	err = u.db.QueryRow(qInsertSession, session.UserID, session.LoggedAt, session.LastSeenAt, session.LoggedWith, session.Actived).Scan(&id)
 	if err != nil {
-		err = fmt.Errorf("failed to insert session of %d: %s", session.UserID, err)
+		return
 	}
 	return
 }
 
 func (u AuthRepository) GetPasswordHash(user users.User) (id int, pass string, err error) {
 	fmt.Println(user)
-	matchCredentialsQ := `
+	qMatchCredentials := `
 		select
 			id, password
 		from
@@ -120,13 +121,27 @@ func (u AuthRepository) GetPasswordHash(user users.User) (id int, pass string, e
 		where
 			nickname = $1 or email = $2
 	`
-	err = u.db.QueryRow(matchCredentialsQ, user.Nickname, user.Email).Scan(&id, &pass)
+	err = u.db.QueryRow(qMatchCredentials, user.Nickname, user.Email).Scan(&id, &pass)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			err = errors.New("not found: user don't exists")
 			return
 		}
 		err = fmt.Errorf("failed to get user credentials: %s", err)
+	}
+	return
+}
+
+func (u AuthRepository) SaveSudo(sudo auth.Sudo) (err error) {
+	qInsertSudo := `
+		insert into
+			sudo(session_id, duration_in_secs, created_at)
+		values
+			($1, $2, $3)
+	`
+	_, err = u.db.Exec(qInsertSudo, sudo.SessionID, sudo.DurationInSecs, sudo.CreatedAt)
+	if err != nil {
+		err = fmt.Errorf("failed to save sudo of session %s: %s", sudo.SessionID, err)
 	}
 	return
 }
