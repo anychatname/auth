@@ -298,7 +298,7 @@ func (a AuthHandler) getUserReader(name handlerName) (r userReader, err error) {
 	return
 }
 
-func (a AuthHandler) HandleSudo(w http.ResponseWriter, r *http.Request) {
+func (a AuthHandler) CreateSudo(w http.ResponseWriter, r *http.Request) {
 	sess, err := a.store.Get(r, "sess")
 	if err != nil {
 		a.handleError(w, err)
