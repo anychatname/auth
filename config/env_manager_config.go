@@ -38,6 +38,11 @@ func newConfigWithEnvVars() (conf ConfigInfo, err error) {
 		return
 	}
 
+	sudoDuration, err := getEnvInt("SUDO_DURATION_IN_SECS")
+	if err != nil {
+		return
+	}
+
 	conf = ConfigInfo{
 		Server: server{
 			Port:           srvPort,
@@ -59,6 +64,9 @@ func newConfigWithEnvVars() (conf ConfigInfo, err error) {
 				Scopes:       strings.Split(os.Getenv("OAUTH_FACEBOOK_SCOPES"), ";"),
 				Endpoint:     facebook.Endpoint,
 			},
+		},
+		Sudo: sudo{
+			durationInSecs: sudoDuration,
 		},
 		PostgreSQLProperties: postgreSQLProperties{
 			User:     os.Getenv("DB_USER"),

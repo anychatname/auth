@@ -35,3 +35,30 @@ create table if not exists user_session (
 );
 
 create unique index idx_user_id_actived on user_session(user_id, actived);
+
+create table if not exists events (
+	id serial unique not null,
+	name varchar unique,
+	created_at timestamp default now()
+);
+
+create table if not exists sudo (
+	id serial unique not null,
+	session_id varchar not null,
+	duration_in_secs integer not null,
+	created_at timestamp not null,
+
+	primary key(id),
+    foreign key (session_id) references user_session(id)
+);
+
+create table if not exists sudo_events (
+	id serial unique not null,
+	sudo_id integer not null,
+	event_id integer not null, 
+	created_at timestamp not null,
+
+	primary key(id),
+    foreign key (sudo_id) references sudo(id),
+    foreign key (event_id) references events(id)
+);

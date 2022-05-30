@@ -37,12 +37,7 @@ type AuthRepository interface {
 	//  @return $2 error: failed record creation.
 	SignUp(user users.User, session auth.Session) (int, error)
 
-	// MatchCredentials locate a user by its credentials which check if match.
-	//  Returns the id of the user if match.
-	//	@param user users.User: user to check the credentials.
-	//	@return $1 int: id of the matched user. Is 0 if it don't match.
-	//	@return $2 error: failed credentials validation process.
-	MatchCredentials(user users.User) (int, error)
+	GetPasswordHash(user users.User) (int, string, error)
 
 	// UpsertSession creates or updates the user session.
 	//  @param session auth.Session: session to create or update.
