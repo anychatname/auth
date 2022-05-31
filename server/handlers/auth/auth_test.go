@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -63,14 +64,20 @@ func (a *authRepositoryImpl) SaveSudo(sudo auth.Sudo) (err error) {
 
 func (a *authRepositoryImpl) UpsertSession(session auth.Session) (id int, err error) {
 	a.m.Lock()
+	fmt.Println("session repo ////")
+	fmt.Println(a.session)
+	fmt.Println("session repo ////")
 	if s, ok := a.session[session.ID]; ok {
+		fmt.Println("Existe", session.ID)
 		s.LastSeenAt = session.LastSeenAt
 		a.session[session.ID] = s
 	} else {
+		fmt.Println("No existe")
 		a.sessionSerial++
 		session.ID = a.sessionSerial
 		a.session[session.ID] = session
 	}
+	id = session.ID
 	a.m.Unlock()
 	return
 }
@@ -154,6 +161,41 @@ func TestGetPasswordHash(t *testing.T) {
 		assert.EqualError(t, err, "not found: user don't exists")
 		assert.Empty(t, id)
 		assert.Empty(t, pass)
+	})
+}
+
+func TestUpsertSession(t *testing.T) {
+	authRepo, _ := testingAuthRepo.(*authRepositoryImpl)
+	fmt.Println("checking ---------")
+	fmt.Println(authRepo.session)
+	fmt.Println("checking ---------")
+
+	t.Run("Given a existent session When updating or inserting session Then session updated", func(t *testing.T) {
+		sessionExp := session
+		sessionExp.ID = authRepo.sessionSerial + 1
+		authRepo.session[sessionExp.ID] = sessionExp
+
+		id, err := authRepo.UpsertSession(sessionExp)
+		assert.NoError(t, err)
+		assert.Equal(t, sessionExp.ID, id)
+
+		sessionGot := authRepo.session[sessionExp.ID]
+		assert.Equal(t, sessionExp, sessionGot)
+	})
+
+	t.Run("Given a non-existent session When updateing or inserting a session Then session inserted", func(t *testing.T) {
+		sessionExp := session
+		prevSessionSerial := authRepo.sessionSerial
+
+		fmt.Println(authRepo.session)
+		id, err := authRepo.UpsertSession(sessionExp)
+		assert.NoError(t, err)
+		assert.Equal(t, prevSessionSerial+1, id)
+
+		sessionExp.ID = id
+		sessionGot := authRepo.session[id]
+
+		assert.Equal(t, sessionExp, sessionGot)
 	})
 }
 
