@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -22,11 +21,16 @@ type authRepositoryImpl struct {
 	session       map[int]auth.Session
 }
 
-var testingAuthRepo database.AuthRepository = &authRepositoryImpl{
-	m:       sync.Mutex{},
-	users:   make(map[string]users.User),
-	session: make(map[int]auth.Session),
+func newAuthRepositoryImpl() authRepositoryImpl {
+	return authRepositoryImpl{
+		m:       sync.Mutex{},
+		users:   map[string]users.User{},
+		session: map[int]auth.Session{},
+	}
 }
+
+// This statement is to check if the authRepositoryImpl mock is doing well with the database.AuthRepository interface.
+var _ database.AuthRepository = &authRepositoryImpl{}
 
 func (a *authRepositoryImpl) SignUp(user users.User, session auth.Session) (id int, err error) {
 	a.m.Lock()
@@ -59,20 +63,16 @@ func (a *authRepositoryImpl) GetPasswordHash(user users.User) (id int, pass stri
 }
 
 func (a *authRepositoryImpl) SaveSudo(sudo auth.Sudo) (err error) {
+	// TODO
 	return
 }
 
 func (a *authRepositoryImpl) UpsertSession(session auth.Session) (id int, err error) {
 	a.m.Lock()
-	fmt.Println("session repo ////")
-	fmt.Println(a.session)
-	fmt.Println("session repo ////")
 	if s, ok := a.session[session.ID]; ok {
-		fmt.Println("Existe", session.ID)
 		s.LastSeenAt = session.LastSeenAt
 		a.session[session.ID] = s
 	} else {
-		fmt.Println("No existe")
 		a.sessionSerial++
 		session.ID = a.sessionSerial
 		a.session[session.ID] = session
@@ -118,7 +118,7 @@ var (
 )
 
 func TestAuthRepoSignUp(t *testing.T) {
-	authRepo, _ := testingAuthRepo.(*authRepositoryImpl)
+	authRepo := newAuthRepositoryImpl()
 
 	t.Run("Given complete user info When sign up Then success", func(t *testing.T) {
 		userExp := newExpectedUser(t, user)
@@ -143,7 +143,7 @@ func TestAuthRepoSignUp(t *testing.T) {
 }
 
 func TestGetPasswordHash(t *testing.T) {
-	authRepo, _ := testingAuthRepo.(*authRepositoryImpl)
+	authRepo := newAuthRepositoryImpl()
 
 	t.Run("Given a existent user When getting password hash and id Then success", func(t *testing.T) {
 		userExp := newExpectedUser(t, user)
@@ -165,10 +165,7 @@ func TestGetPasswordHash(t *testing.T) {
 }
 
 func TestUpsertSession(t *testing.T) {
-	authRepo, _ := testingAuthRepo.(*authRepositoryImpl)
-	fmt.Println("checking ---------")
-	fmt.Println(authRepo.session)
-	fmt.Println("checking ---------")
+	authRepo := newAuthRepositoryImpl()
 
 	t.Run("Given a existent session When updating or inserting session Then session updated", func(t *testing.T) {
 		sessionExp := session
@@ -187,7 +184,6 @@ func TestUpsertSession(t *testing.T) {
 		sessionExp := session
 		prevSessionSerial := authRepo.sessionSerial
 
-		fmt.Println(authRepo.session)
 		id, err := authRepo.UpsertSession(sessionExp)
 		assert.NoError(t, err)
 		assert.Equal(t, prevSessionSerial+1, id)
