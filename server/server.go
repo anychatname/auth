@@ -74,4 +74,5 @@ func setUpAuthHandlers(r *mux.Router, conf config.ConfigInfo, db database.Databa
 	)
 
 	r.HandleFunc("/auth/{action}/{handler}", ah.HandleAuth).Methods("GET", "POST")
+	r.HandleFunc("/auth/sudo", ah.CreateSudo).Methods("POST")
 }

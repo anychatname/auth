@@ -14,7 +14,10 @@ import (
 	"github.com/coffemanfp/chat/server/handlers"
 	"github.com/coffemanfp/chat/users"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
+
+var authCookieName = "sess"
 
 type handlerName string
 
@@ -29,6 +32,7 @@ type AuthHandler struct {
 	repository database.AuthRepository
 	writer     handlers.ResponseWriter
 	reader     handlers.RequestReader
+	store      *sessions.CookieStore
 
 	// userReaders keeps the services to be used for read the user info which is trying to sign.
 	userReaders map[handlerName]userReader
@@ -65,11 +69,13 @@ type externalSignUpHandler interface {
 func NewAuthHandler(repo database.AuthRepository, r handlers.RequestReader, w handlers.ResponseWriter, conf config.ConfigInfo) (u AuthHandler) {
 	fbHandler := newFacebookHandler(conf)
 	gHandler := newGoogleHandler(conf)
+	store := sessions.NewCookieStore([]byte("veryprivatekey"))
 	return AuthHandler{
 		reader:     r,
 		writer:     w,
 		repository: repo,
 		config:     conf,
+		store:      store,
 		userReaders: map[handlerName]userReader{
 			systemHandlerName: systemUserReader{
 				reader: r,
@@ -114,13 +120,13 @@ func (a AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tmpID string
+	var sessionID int
 
 	switch action {
 	case "signup":
-		tmpID, err = a.handleSignUp(user, w, r)
+		sessionID, err = a.handleSignUp(user, w, r)
 	case "login":
-		tmpID, err = a.handleLogin(user, w, r)
+		sessionID, err = a.handleLogin(user, w, r)
 	}
 	if err != nil {
 		a.handleError(w, err)
@@ -128,12 +134,21 @@ func (a AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rURL, _ := url.Parse("http://localhost:3000/chat")
-	qValues := rURL.Query()
-	qValues.Set("tmp_id", tmpID)
-	rURL.RawQuery = qValues.Encode()
-
 	if hName != systemHandlerName.string() {
 		http.Redirect(w, r, rURL.String(), http.StatusTemporaryRedirect)
+	}
+
+	sess, err := a.store.Get(r, authCookieName)
+	if err != nil {
+		a.handleError(w, err)
+		return
+	}
+
+	sess.Values["session_id"] = sessionID
+	err = sess.Save(r, w)
+	if err != nil {
+		a.handleError(w, err)
+		return
 	}
 
 	log.Printf("Success %s %s", hName, action)
@@ -141,27 +156,27 @@ func (a AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 
 // handleSignUp performs a sign up process for the user requested.
 //  @param user users.User: user to sign up.
-//  @return tmpID string: just-one-use tmp id.
-func (a AuthHandler) handleSignUp(user users.User, w http.ResponseWriter, r *http.Request) (tmpID string, err error) {
+//  @return sessionID string: session unique identificator.
+func (a AuthHandler) handleSignUp(user users.User, w http.ResponseWriter, r *http.Request) (sessionID int, err error) {
 	user, session, err := a.signUp(user)
 	if err != nil {
 		return
 	}
 
-	tmpID = session.TmpID
+	sessionID = session.ID
 	return
 }
 
 // handleLogin performs a login process for the user requested.
 //  @param user users.User: user to login.
-//  @return tmpID string: just-one-use tmp id.
-func (a AuthHandler) handleLogin(user users.User, w http.ResponseWriter, r *http.Request) (tmpID string, err error) {
+//  @return sessionID string: session unique identificator.
+func (a AuthHandler) handleLogin(user users.User, w http.ResponseWriter, r *http.Request) (sessionID int, err error) {
 	session, err := a.login(user)
 	if err != nil {
 		return
 	}
 
-	tmpID = session.TmpID
+	sessionID = session.ID
 	return
 }
 
@@ -223,7 +238,7 @@ func (a AuthHandler) signUp(userR users.User) (user users.User, session auth.Ses
 
 	log.Println("New generated session")
 
-	err = a.repository.UpsertSession(session)
+	session.ID, err = a.repository.UpsertSession(session)
 	if err != nil {
 		return
 	}
@@ -243,17 +258,12 @@ func (a AuthHandler) signUp(userR users.User) (user users.User, session auth.Ses
 func (a AuthHandler) login(userR users.User) (session auth.Session, err error) {
 	log.Printf("Creating login session of %s %s", userR.Nickname, userR.Email)
 
-	err = users.HashPassword(&userR.Password)
+	id, pass, err := a.repository.GetPasswordHash(userR)
 	if err != nil {
 		return
 	}
 
-	id, err := a.repository.MatchCredentials(userR)
-	if err != nil {
-		return
-	}
-
-	if id == 0 {
+	if !auth.CheckPasswordHash(userR.Password, pass) {
 		err = sErrors.NewClientError(http.StatusUnauthorized, "credentials don't match: invalid credentials of user %s %s", userR.Nickname, userR.Email)
 		return
 	}
@@ -263,12 +273,12 @@ func (a AuthHandler) login(userR users.User) (session auth.Session, err error) {
 		platform = handlerName(userR.SignedWith[0].Platform)
 	}
 
-	session, err = auth.NewSession(userR.ID, platform.string())
+	session, err = auth.NewSession(id, platform.string())
 	if err != nil {
 		return
 	}
 
-	err = a.repository.UpsertSession(session)
+	session.ID, err = a.repository.UpsertSession(session)
 	return
 }
 
@@ -286,6 +296,30 @@ func (a AuthHandler) getUserReader(name handlerName) (r userReader, err error) {
 		err = sErrors.NewClientError(http.StatusBadRequest, "invalid signup handler: %s not exists", name)
 	}
 	return
+}
+
+func (a AuthHandler) CreateSudo(w http.ResponseWriter, r *http.Request) {
+	sess, err := a.store.Get(r, "sess")
+	if err != nil {
+		a.handleError(w, err)
+		return
+	}
+
+	sessionID, ok := sess.Values["session_id"].(int)
+	if !ok {
+		err = sErrors.NewClientError(http.StatusUnauthorized, "invalid credentials: user session expired or invalid")
+		a.handleError(w, err)
+		return
+	}
+
+	sudo := auth.NewSudo(sessionID, a.config.Sudo.DurationInSecs)
+	err = a.repository.SaveSudo(sudo)
+	if err != nil {
+		a.handleError(w, err)
+		return
+	}
+
+	log.Println("Success sudo")
 }
 
 func (a AuthHandler) handleError(w http.ResponseWriter, err error) {

@@ -13,6 +13,7 @@ type ConfigInfo struct {
 	Server               server               `yaml:"server"`
 	OAuth                oauth                `yaml:"oauth"`
 	PostgreSQLProperties postgreSQLProperties `yaml:"psql"`
+	Sudo                 sudo                 `yaml:"sudo"`
 }
 
 type server struct {
@@ -32,6 +33,10 @@ type oauthProperties struct {
 	RedirectURIS []string `yaml:"redirect_uris"`
 	Scopes       []string `yaml:"scopes"`
 	Endpoint     oauth2.Endpoint
+}
+
+type sudo struct {
+	DurationInSecs int `yaml:"duration_in_secs"`
 }
 
 type postgreSQLProperties struct {

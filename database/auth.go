@@ -29,6 +29,13 @@ func GetAuthRepository(repoMap map[RepositoryID]interface{}) (repo AuthRepositor
 
 // AuthRepository defines the behaviors to be used by a AuthRepository implementation.
 type AuthRepository interface {
+	// GetPasswordHash gets the id and the password hash of the user asked for.
+	//  @param user users.User: user to ask for.
+	//	@return $1 int: id of the user.
+	//  @return $2 string: password hash of the user.
+	//  @return $2 error: failed record querying.
+	GetPasswordHash(user users.User) (int, string, error)
+
 	// SignUp creates the records for a new user register and its session.
 	//  Returns a new id for the user created.
 	//  @param user users.User: user to be created.
@@ -37,15 +44,10 @@ type AuthRepository interface {
 	//  @return $2 error: failed record creation.
 	SignUp(user users.User, session auth.Session) (int, error)
 
-	// MatchCredentials locate a user by its credentials which check if match.
-	//  Returns the id of the user if match.
-	//	@param user users.User: user to check the credentials.
-	//	@return $1 int: id of the matched user. Is 0 if it don't match.
-	//	@return $2 error: failed credentials validation process.
-	MatchCredentials(user users.User) (int, error)
-
 	// UpsertSession creates or updates the user session.
 	//  @param session auth.Session: session to create or update.
 	//  @return $1 error: failed record creation or update.
-	UpsertSession(session auth.Session) error
+	UpsertSession(session auth.Session) (int, error)
+
+	SaveSudo(sudo auth.Sudo) error
 }
